@@ -1,147 +1,161 @@
-Project Title: Flu Shot Learning
+# Flu Vaccine Uptake Prediction
 
-Aim: Predict H1N1 and Seasonal Flu Vaccine Uptake from Survey Data
+This project predicts H1N1 and seasonal flu vaccine uptake using logistic regression and Light GBM machine learning models.
 
-Description
+## Table of Contents
 
-This project builds and evaluates models to predict whether individuals received the H1N1 and/or seasonal flu vaccines, based on demographic, behavioral, and opinion survey features. It follows the CRISP‑DM process—Business Understanding, Data Understanding, Data Preparation, Modeling, Evaluation, Deployment—to deliver robust probability estimates for both vaccine targets 
+-   [1.  Business Understanding](#1-business-understanding)
+-   [2.  Data Understanding](#2-data-understanding)
+-   [3.  Data Preparation](#3-data-preparation)
+-   [4.  Modeling](#4-modeling)
+-   [5.  Evaluation](#5-evaluation)
+-   [6.  Deployment](#6-deployment)
+-   [Files](#files)
+-   [Getting Started](#getting-started)
 
+## 1.  Business Understanding
 
-Table of Contents
+###   Objective
 
-1. Installation
+The goal is to develop predictive models that accurately estimate individuals’ vaccination probabilities to aid public health outreach and intervention efforts.
 
-2. Usage
+###   Motivation
 
-3. Data
+Understanding the complex interplay of factors influencing vaccine uptake can help public health organizations design more effective campaigns and allocate resources efficiently.
 
-4. Pipeline Overview (CRISP‑DM)
+## 2.  Data Understanding
 
-    4.1 Business Understanding
+###   Data Sources
 
-    4.2 Data Understanding
+The project uses data from the National 2009 H1N1 Flu Survey. The key datasets are:
 
-    4.3 Data Preparation
+-   `training_set_features.csv`: Contains independent variables (features) for training the models.
+-   `training_set_labels.csv`: Contains the target variables (H1N1 and seasonal flu vaccine uptake) for training.
+-   `test_set_features.csv`: Contains independent variables for which predictions are needed.
+-   `submission_format.csv`: Specifies the required format for the submission file.
 
-    4.4 Modeling
+###   Data Description
 
-    4.5 Evaluation
+-   Features: 36 columns representing various aspects of respondents, including:
+    -   Beliefs/Concerns (e.g., `h1n1_concern`, `opinion_h1n1_vacc_effective`)
+    -   Behaviors (e.g., `behavioral_antiviral_meds`, `behavioral_wash_hands`)
+    -   Demographics (e.g., `age_group`, `education`, `income_poverty`)
+    -   Health-Related (e.g., `chronic_med_condition`, `health_worker`)
+-   Target Variables:
+    -   `h1n1_vaccine`: Binary variable indicating H1N1 vaccine uptake (0 or 1).
+    -   `seasonal_vaccine`: Binary variable indicating seasonal flu vaccine uptake (0 or 1).
+-   Data Size:
+    -   Training set: 26,707 samples, 36 features.
+    -   Test set: 26,708 samples, 36 features.
 
-    4.6 Deployment
+- **Target Distributions**:
+  - `h1n1_vaccine`: 21.25% vaccinated, 78.75% not vaccinated
+  - `seasonal_vaccine`: 46.56% vaccinated, 53.44% not vaccinated
 
-5. Results & Interpretation
+###   Exploratory Data Analysis (EDA)
 
-6. Next Steps
+The `Flu_Shot_Learning.ipynb` notebook performs EDA:
 
-7. License
+-   Loading and inspecting data:
 
+    ```python
+    import pandas as pd
+    feat_train = pd.read_csv('Data/training_set_features.csv')
+    print(feat_train.head())
+    print(feat_train.info())
+    ```
 
-Installation
+    * This provides a glimpse into the data structure and data types.
+    * For example, `feat_train.info()` reveals that some columns have missing values, and `age_group` is of object type (categorical).
 
->> In git bash run the following commands
-# Clone repository
-git clone https://github.com/edgarsoudie/flu-shot-learning.git
-cd flu-shot-learning
+-   Missing value analysis:
 
-# Create virtual environment and install dependencies
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-Dependencies include: pandas, scikit-learn, lightgbm 
-DrivenData
+    ```python
+    print(feat_train.isnull().sum().sort_values(ascending=False).head())
+    ```
 
-Usage
+    * The top 5 columns with the most missing values are:
+        * `employment_occupation`: 13470 missing values
+        * `employment_industry`: 13330 missing values
+        * `health_insurance`: 12274 missing values
+        * `income_poverty`: 4423 missing values
+        * `doctor_recc_seasonal`: 2160 missing values
 
-Place data files (`training_set_features.csv`, `training_set_labels.csv`, `test_set_features.csv`, `submission_format.csv`) in the data/ folder.
+    * This highlights that employment-related information and health insurance coverage are frequently missing.
 
-Run the main pipeline:
+-   Target variable distribution:
 
-bash
+    ```python
+    print(lbl_train['h1n1_vaccine'].value_counts())
+    print(lbl_train['seasonal_vaccine'].value_counts())
+    ```
 
-python src/run_pipeline.py
-Inspect submission.csv for model predictions ready for submission.
+    * H1N1 vaccine uptake:
+        * 0 (Not Vaccinated): 21033
+        * 1 (Vaccinated): 5674
+    * Seasonal vaccine uptake:
+        * 0 (Not Vaccinated): 14272
+        * 1 (Vaccinated): 12435
 
-Data
-Source: National 2009 H1N1 Flu Survey via DrivenData 
-DrivenData
-.
+    * The target variables exhibit class imbalance, especially `h1n1_vaccine`, where the number of non-vaccinated individuals is much higher than the number of vaccinated individuals.
 
-Training: 26,707 respondents × 35 features + 2 targets.
+## 3.  Data Preparation
 
-Test: 26,708 respondents × 35 features.
+-   Feature engineering: A binary feature `has_underlying_condition` is created to indicate the presence of any chronic medical condition.
+-   Missing value handling: Categorical features are filled with the string 'missing'.
+-   Categorical encoding: Label Encoding is used to convert categorical features into numerical representations.
+-   One-Hot Encoding: An example is shown for the 'education' feature to illustrate the technique.
 
-Features: Demographics (age, sex), behaviors (mask use, handwashing), opinions (vaccine concern/knowledge), and doctor recommendations.
+## 4.  Modeling
 
-Pipeline Overview (CRISP‑DM)
-4.1 Business Understanding
-Goal: Maximize predictive accuracy for H1N1 and seasonal flu vaccination uptake to practice end‑to‑end modeling skills.
+-   Models: Logistic Regression, LightGBM.
+-   Cross-validation: Stratified K-Fold cross-validation is used to handle class imbalance and provide more robust evaluation.
+-   Logistic Regression:
+    -   Separate models are trained for H1N1 and seasonal vaccine prediction.
+    -   Class imbalance is addressed using the `class_weight='balanced'` parameter.
+-   LightGBM:
+    -   Separate models are trained for each target variable.
+    -   AUC (Area Under the ROC Curve) is used as the primary evaluation metric.
+    -   Model parameters are set as: `objective='binary'`, `metric='auc'`, `n_estimators=100`, `learning_rate=0.05`, `random_state=42`, `verbose=-1`, `n_jobs=-1`.
 
-4.2 Data Understanding
-We merged features and labels, examined target balance (~20% H1N1, ~50% seasonal), and checked missingness (up to 10% in employment fields) 
-DrivenData
-.
+## 5.  Evaluation
 
-4.3 Data Preparation
-Missing Values: Imputed categorical missings as "missing"—retains information rather than dropping rows.
+-   Metrics: AUC, classification report, confusion matrix.
+-   Logistic Regression:
+    -   Performance is evaluated with and without class weights to assess the impact of this technique.
+    -   Classification reports provide precision, recall, and F1-score for each class.
+    -   Confusion matrices visualize true positives, true negatives, false positives, and false negatives.
+-   LightGBM:
+    -   AUC scores are reported for both H1N1 and seasonal vaccine predictions.
 
-Encoding: Used LabelEncoder on combined train+test values for simplicity and compatibility with LightGBM 
-Wikipedia
-.
+###   Key Evaluation Results (from notebook)
 
-4.4 Modeling
-Algorithm: LightGBM (binary objective, AUC metric).
+-   **LightGBM Performance (Out-of-Fold AUC):**
+    -   H1N1: 0.8749
+    -   Seasonal: 0.8605
 
-Validation: 5‑fold StratifiedKFold to preserve class ratios across folds.
+    * LightGBM models demonstrate strong performance on both targets, indicating a good ability to distinguish between vaccinated and non-vaccinated individuals.
 
-Ensembling: Averaged out‑of‑fold (OOF) predictions from each fold to reduce variance and boost generalization.
+-   **Logistic Regression Performance:**
+    -   Logistic Regression models show lower AUC scores compared to LightGBM.
+    -   Class imbalance significantly affects Logistic Regression performance. Without class weighting, the models tend to perform better on the majority class (non-vaccinated) and poorly on the minority class (vaccinated).
+    -   Using `class_weight='balanced'` improves recall for the minority class but often reduces precision for the majority class, highlighting the precision-recall trade-off.
 
-python
-Copy
-Edit
-from sklearn.model_selection import StratifiedKFold
-import lightgbm as lgb
+## 6.  Deployment
 
-kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-for fold, (tr, va) in enumerate(kf.split(X, y_h1n1)):
-    dtrain = lgb.Dataset(X.iloc[tr], label=y_h1n1.iloc[tr])
-    dval   = lgb.Dataset(X.iloc[va], label=y_h1n1.iloc[va])
-    model  = lgb.train(params, dtrain, valid_sets=[dval],
-                       early_stopping_rounds=50, verbose_eval=False)
-    # store OOF and models…
-Stratified folds ensure robust AUC evaluation on imbalanced data 
-Wikipedia
-.
+-   Predictions are generated on the test set using the trained LightGBM models.
+-   Predictions are rounded to two decimal places.
+-   A submission file (`submission.csv`) is created with the respondent IDs and predicted probabilities for both vaccines.
 
-4.5 Evaluation
-Metric: ROC AUC (macro-average across both targets).
+## Files
 
-OOF AUC: ≈0.88 for H1N1, ≈0.92 for seasonal—strong discrimination between classes.
+-   `Flu_Shot_Learning.ipynb`: Jupyter Notebook containing the data analysis and modeling code.
+-   `Data/`: Directory containing the datasets.
+-   `submission.csv`: CSV file with the model predictions.
 
-python
-Copy
-Edit
-from sklearn.metrics import roc_auc_score
-print("H1N1 OOF AUC:", roc_auc_score(y_h1n1, oof_h1n1))
-print("Seasonal OOF AUC:", roc_auc_score(y_seasonal, oof_seasonal))
-4.6 Deployment
-Ensemble‑average predictions across folds, then write to submission.csv.
+## Getting Started
 
-Results & Interpretation
-High AUCs demonstrate the model’s ability to rank vaccine takers above non‑takers with >88% accuracy.
-
-Top Features: Doctor recommendations, age group, and vaccine concern consistently drove predictions—aligning with domain expectations.
-
-Next Steps
-Hyperparameter Tuning via Optuna for extra gains 
-datascience-pm.com
-.
-
-Feature Engineering: Composite behavioral scores and interaction terms.
-
-Model Blending: Include CatBoost or classifier chains to exploit label correlation.
-
-Threshold Optimization: Convert probabilities to class labels where needed.
-
-License
-This project is licensed under the MIT License. See LICENSE for details.
-
+1.  Ensure you have Python 3.x installed along with the required libraries (pandas, scikit-learn, lightgbm).
+2.  Install the libraries using `pip install pandas scikit-learn lightgbm`.
+3.  Place the datasets in the `Data/` directory.
+4.  Run the `Flu_Shot_Learning.ipynb` notebook.
